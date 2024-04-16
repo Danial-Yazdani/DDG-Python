@@ -60,6 +60,10 @@ class DDG:
         self.initialize_dgc_weights()
 
         self.initialize_rotations()
+        
+        self. Conditioning = 1  # (0) Condition number is 1 for all DGCs but the sigma values are different from a DGC to another.
+                                # (1) Condition number is random for all DGCs.
+        self.initialize_dgc_sigmas()
 
 
         # Set severity values for Gradual local changes for each DGC
@@ -87,7 +91,7 @@ class DDG:
         self.VariableNumberChangeLikelihood = 0.0001
         self.ClusterNumberChangeLikelihood = 0.0001
 
-        self.BestValueAtEachFE = np.inf * np.ones(self.MaxEvals)
+        self.BestValueAtEachFE = np.inf * np.ones(self.max_evals)
         self.FE = 0
         self.CurrentBestSolution = None
         self.CurrentBestSolutionValue = np.inf
@@ -96,20 +100,20 @@ class DDG:
         for dgc in self.dgc:
             dgc.ShiftSeverity = self.LocalShiftSeverityRange[0] + ((self.LocalShiftSeverityRange[1] - self.LocalShiftSeverityRange[0]) * self.rng.random())
             dgc.ShiftCorrelationFactor = self.RelocationCorrelationRange[0] + ((self.RelocationCorrelationRange[1] - self.RelocationCorrelationRange[0]) * self.rng.random())
-            tmp = self.rng.randn(self.NumberOfVariables)
+            tmp = self.rng.standard_normal(self.NumberOfVariables)
             dgc.PreviousShiftDirection = tmp / np.sqrt(np.sum(tmp ** 2))
 
             dgc.SigmaSeverity = self.LocalSigmaSeverityRange[0] + ((self.LocalSigmaSeverityRange[1] - self.LocalSigmaSeverityRange[0]) * self.rng.random())
             if self.Conditioning == 0:
                 dgc.SigmaDirection = np.ones(self.NumberOfVariables) * (self.rng.randint(2) * 2 - 1)
             else:
-                dgc.SigmaDirection = self.rng.randint(2, size=self.NumberOfVariables) * 2 - 1
-
-            dgc.WeightSeverity = self.LocalWeightSeverityRange[0] + ((self.LocalWeightSeverityRange[1] - self.LocalWeightSeverityRange[0]) * self.rng.random())
-            dgc.WeightDirection = self.rng.randint(2) * 2 - 1
-
+                dgc.SigmaDirection = self.rng.integers(2, size=self.NumberOfVariables) * 2 - 1
+            
+            dgc.WeightSeverity = self.LocalWeightSeverityRange[0] + ((self.LocalWeightSeverityRange[1] - self.LocalWeightSeverityRange[0]) * self.rng.uniform())
+            dgc.WeightDirection = self.rng.integers(2) * 2 - 1
+            
             dgc.RotationSeverity = self.LocalRotationSeverityRange[0] + ((self.LocalRotationSeverityRange[1] - self.LocalRotationSeverityRange[0]) * self.rng.random())
-            dgc.RotationDirection = np.triu(self.rng.randint(2, size=(self.NumberOfVariables, self.NumberOfVariables)) * 2 - 1, 1)
+            dgc.RotationDirection = np.triu(self.rng.integers(2, size=(self.NumberOfVariables, self.NumberOfVariables)) * 2 - 1, 1)
 
             dgc.LocalChangeLikelihood = self.LocalTemporalSeverityRange[0] + ((self.LocalTemporalSeverityRange[1] - self.LocalTemporalSeverityRange[0]) * self.rng.random())
             dgc.DirectionChangeProbability = self.DirectionChangeProbabilityRange[0] + ((self.DirectionChangeProbabilityRange[1] - self.DirectionChangeProbabilityRange[0]) * self.rng.random())
@@ -123,7 +127,6 @@ class DDG:
             if rotation == 1:
                 ThetaMatrix = np.zeros((self.NumberOfVariables, self.NumberOfVariables))
                 upper_triangle = np.triu_indices(self.NumberOfVariables, 1)
-                ThetaMatrix[upper_triangle] = MinAngle + (MaxAngle - MinAngle) * self.rng.random(len(upper_triangle[0]))
                 dgc.ThetaMatrix = ThetaMatrix
                 dgc.RotationMatrix = self.rotation(ThetaMatrix)
             else:
@@ -141,23 +144,23 @@ class DDG:
             dgc.weight = self.min_weight + (self.max_weight - self.min_weight) * self.rng.random()
 
     def initialize_dgc_sigmas(self):
-        Conditioning = 1  # (0) Condition number is 1 for all DGCs but the sigma values are different from a DGC to another.
-                          # (1) Condition number is random for all DGCs.
-        if Conditioning == 0:
+        min_sigma = 7
+        max_sigma = 20
+        if self.Conditioning == 0:
             for dgc in self.dgc:
-                dgc.sigma = (self.min_sigma + (self.max_sigma - self.min_sigma) * self.rng.random()) * np.ones(self.NumberOfVariables)
-        elif Conditioning == 1:
+                dgc.sigma = (min_sigma + (max_sigma - min_sigma) * self.rng.random()) * np.ones(self.NumberOfVariables)
+        elif self.Conditioning == 1:
             for dgc in self.dgc:
-                dgc.sigma = self.min_sigma + (self.max_sigma - self.min_sigma) * self.rng.random(self.NumberOfVariables)
+                dgc.sigma = min_sigma + (max_sigma - min_sigma) * self.rng.random(self.NumberOfVariables)
         else:
             print('Warning: Wrong number is chosen for conditioning.')
 
     def rotation(self, theta):
-        R = np.eye(self.Dimension)
-        for p in range(self.Dimension - 1):
-            for q in range(p + 1, self.Dimension):
+        R = np.eye(self.NumberOfVariables)
+        for p in range(self.NumberOfVariables - 1):
+            for q in range(p + 1, self.NumberOfVariables):
                 if theta[p, q] != 0:
-                    G = np.eye(self.Dimension)
+                    G = np.eye(self.NumberOfVariables)
                     cos_val = np.cos(theta[p, q])
                     sin_val = np.sin(theta[p, q])
                     G[p, p], G[q, q] = cos_val, cos_val
