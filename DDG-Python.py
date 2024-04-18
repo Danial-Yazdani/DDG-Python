@@ -60,7 +60,7 @@ class DDG:
             # Initialize the mean position (center) of each DGC randomly in the specified range
             self.initialize_DGC_center(dgc)
 
-
+            
         # Defining the weight values of DGCs
         self.min_weight = 1
         self.max_weight = 3
@@ -77,8 +77,8 @@ class DDG:
         for dgc in self.dgc:
             # Initialize the sigma values of each DGC randomly in the specified range and based on the conditioning type
             self.initialize_DGC_sigmas(dgc)
-
-
+            
+            
         # Defining the rotation matrices of DGCs
         self.MinAngle = -np.pi
         self.MaxAngle = np.pi
@@ -119,7 +119,7 @@ class DDG:
         self.ClusterNumberChangeLikelihood = 0.0001
 
         # Parameters used for storing the results
-        self.BestValueAtEachFE = np.inf * np.ones(self.max_evals)
+        self.BestValueAtEachFE = np.inf * np.ones(self.MaxEvals)
         self.FE = 0
         self.CurrentBestSolution = None
         self.CurrentBestSolutionValue = np.inf
@@ -150,7 +150,7 @@ class DDG:
             upper_triangle = np.triu_indices(self.NumberOfVariables, 1)
             ThetaMatrix[upper_triangle] = self.MinAngle + (self.MaxAngle - self.MinAngle) * self.rng.random(len(upper_triangle[0]))
             dgc.ThetaMatrix = ThetaMatrix
-            dgc.RotationMatrix = self.rotation(ThetaMatrix)
+            dgc.RotationMatrix = self.GenerateRotationMatrix(ThetaMatrix)
         else:
             dgc.RotationMatrix = np.eye(self.NumberOfVariables)
             dgc.ThetaMatrix = np.zeros((self.NumberOfVariables, self.NumberOfVariables))
@@ -180,7 +180,7 @@ class DDG:
 
 
     # Generate a rotation matrix based on the Theta matrix for a DGC
-    def rotation(self, theta):
+    def GenerateRotationMatrix(self, theta):
         R = np.eye(self.NumberOfVariables)
         for p in range(self.NumberOfVariables - 1):
             for q in range(p + 1, self.NumberOfVariables):
