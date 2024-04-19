@@ -12,15 +12,15 @@ class DDG:
             self.theta_matrix = None
             self.shift_severity = None
             self.shift_correlation_factor = None
-            self.PreviousShiftDirection = None
+            self.previous_shift_direction = None
             self.sigma_severity = None
             self.sigma_direction = None
-            self.WeightSeverity = None
-            self.WeightDirection = None
-            self.RotationSeverity = None
-            self.RotationDirection = None
-            self.LocalChangeLikelihood = None
-            self.DirectionChangeProbability = None
+            self.weight_severity = None
+            self.weight_direction = None
+            self.rotation_severity = None
+            self.rotation_direction = None
+            self.local_change_likelihood = None
+            self.direction_change_probability = None
 
     def __init__(self):
         # Initialize the parameters of DDG
@@ -30,7 +30,7 @@ class DDG:
         # Create a RandomState instance with a specific seed for DDG
         self.rng = np.random.default_rng(self.seed)
 
-        self.MaxEvals = 500000  # Maximum function evaluation number. Used for terminating the simulation.
+        self.max_evals = 500000  # Maximum function evaluation number. Used for terminating the simulation.
 
         # Number of DGCs, variables, and clusters
         self.min_num_of_variables = 2
@@ -45,14 +45,14 @@ class DDG:
         # Uncomment the next line if you want to randomly initialize the number of clusters
         # self.cluster_number = self.rng.integers(self.min_cluster_number, self.max_cluster_number + 1)
 
-        self.MinDGCnumber = 3
-        self.MaxDGCnumber = 10
-        self.DGCnumber = 7  # Set it to a specific initial value, or comment it and use the following line to randomly initialize it
+        self.min_DGC_number = 3
+        self.max_DGC_number = 10
+        self.DGC_number = 7  # Set it to a specific initial value, or comment it and use the following line to randomly initialize it
         # Uncomment the next line if you want to randomly initialize the number of DGCs
-        # self.DGCnumber = self.rng.integers(self.MinDGCnumber, self.MaxDGCnumber + 1)
+        # self.DGC_number = self.rng.integers(self.min_DGC_number, self.max_DGC_number + 1)
 
         # Defining DGCs
-        self.dgc = [self.DGC() for _ in range(self.DGCnumber)]
+        self.dgc = [self.DGC() for _ in range(self.DGC_number)]
 
         # Initializing the center positions of DGCs
         self.min_coordinate = -70  # Used for bounding the center (mean) positions of DGCs
@@ -81,8 +81,8 @@ class DDG:
             
             
         # Defining the rotation matrices of DGCs
-        self.MinAngle = -np.pi
-        self.MaxAngle = np.pi
+        self.min_angle = -np.pi
+        self.max_angle = np.pi
         self.rotation = 1 # (0) Without rotation
                           # (1) Random Rotation for all DGCs==> Rotation with random angles for each plane for each DGC    
         for dgc in self.dgc:            
@@ -92,45 +92,45 @@ class DDG:
 
         # Set severity values for Gradual local changes for each DGC
         # For parameters that are not going to be impacted in environmental changes (i.e., remain fixed over time), set the severity range to [0,0].
-        self.Localshift_severityRange = [0.1, 0.2]
-        self.RelocationCorrelationRange = [0.99, 0.995]
-        self.Localsigma_severityRange = [0.05, 0.1]
-        self.LocalWeightSeverityRange = [0.02, 0.05]
-        self.LocalRotationSeverityRange = [np.pi / 360, np.pi / 180]
-        self.DirectionChangeProbabilityRange = [0.02, 0.05]
-        self.LocalTemporalSeverityRange = [0.05, 0.1]
+        self.local_shift_severity_range = [0.1, 0.2]
+        self.relocation_correlation_range = [0.99, 0.995]
+        self.local_sigma_severity_range = [0.05, 0.1]
+        self.local_weight_severity_range = [0.02, 0.05]
+        self.local_rotation_severity_range = [np.pi / 360, np.pi / 180]
+        self.direction_change_probability_range = [0.02, 0.05]
+        self.local_temporal_severity_range = [0.05, 0.1]
         for dgc in self.dgc:  
             # Initialize the severity values for Gradual local changes for each DGC based on the specified ranges          
             self.initialize_severity(dgc)
 
         # Change severity values for severe changes in the parameters of all DGCs
-        self.Globalshift_severityValue = 10
-        self.Globalsigma_severityValue = 5
-        self.GlobalWeightSeverityValue = 0.5
-        self.GlobalAngleSeverityValue = np.pi / 4
-        self.GlobalSeverityControl = 0.1
-        self.GlobalChangeLikelihood = 0.0001
+        self.global_shift_severity_value = 10
+        self.global_sigma_severity_value = 5
+        self.global_weight_severity_value = 0.5
+        self.global_angle_severity_value = np.pi / 4
+        self.global_severity_control = 0.1
+        self.global_change_likelihood = 0.0001
 
         # Parameters for changing the numbers of variables, DGCs, and cluster centers
-        self.DGCNumberChangeSeverity = 1
-        self.VariableNumberChangeSeverity = 1
-        self.ClusterNumberChangeSeverity = 1
-        self.DGCNumberChangeLikelihood = 0.0001
-        self.VariableNumberChangeLikelihood = 0.0001
-        self.ClusterNumberChangeLikelihood = 0.0001
+        self.DGC_number_change_severity = 1
+        self.variable_number_change_severity = 1
+        self.cluster_number_change_severity = 1
+        self.DGC_number_change_likelihood = 0.0001
+        self.variable_number_change_likelihood = 0.0001
+        self.cluster_number_change_likelihood = 0.0001
 
         # Parameters used for storing the results
-        self.BestValueAtEachFE = np.inf * np.ones(self.MaxEvals)
+        self.best_value_at_each_FE = np.inf * np.ones(self.max_evals)
         self.FE = 0
-        self.CurrentBestSolution = np.nan * np.ones(self.num_of_variables)
-        self.CurrentBestSolutionValue = np.inf
+        self.current_best_solution = np.nan * np.ones(self.num_of_variables)
+        self.current_best_solution_value = np.inf
 
         # Defining dataset and sampling parameters
         self.data = {
             'dataset': np.empty((0, self.num_of_variables)),  # Initialize an empty dataset
             'size': 1000,  # Maximum size of the dataset
             'FrequentSamplingLikelihood': 0.01, # The likelihood of Incremental Sampling
-            'IncrementalSamplingSize': math.ceil(self.SampleSize * 0.05)  # Define the percentage of dataset to be replaced by new samples
+            'IncrementalSamplingSize': math.ceil(self.data['size'] * 0.05)  # Define the percentage of dataset to be replaced by new samples
         }
         self.data_generation(self.data['size'])
 
@@ -160,7 +160,7 @@ class DDG:
         if self.rotation == 1:
             theta_matrix = np.zeros((self.num_of_variables, self.num_of_variables))
             upper_triangle = np.triu_indices(self.num_of_variables, 1)
-            theta_matrix[upper_triangle] = self.MinAngle + (self.MaxAngle - self.MinAngle) * self.rng.random(len(upper_triangle[0]))
+            theta_matrix[upper_triangle] = self.min_angle + (self.max_angle - self.min_angle) * self.rng.random(len(upper_triangle[0]))
             dgc.theta_matrix = theta_matrix
             dgc.rotation_matrix = self.generate_rotation_matrix(theta_matrix)
         else:
@@ -170,32 +170,32 @@ class DDG:
 
     # Initialize the severity values for Gradual local changes for each DGC        
     def initialize_severity(self, dgc):
-        dgc.shift_severity = self.Localshift_severityRange[0] + \
-            ((self.Localshift_severityRange[1] - self.Localshift_severityRange[0]) * self.rng.random())
-        dgc.shift_correlation_factor = self.RelocationCorrelationRange[0] + \
-            ((self.RelocationCorrelationRange[1] - self.RelocationCorrelationRange[0]) * self.rng.random())
+        dgc.shift_severity = self.local_shift_severity_range[0] + \
+            ((self.local_shift_severity_range[1] - self.local_shift_severity_range[0]) * self.rng.random())
+        dgc.shift_correlation_factor = self.relocation_correlation_range[0] + \
+            ((self.relocation_correlation_range[1] - self.relocation_correlation_range[0]) * self.rng.random())
         tmp = self.rng.standard_normal(self.num_of_variables)
-        dgc.PreviousShiftDirection = tmp / np.sqrt(np.sum(tmp ** 2))
+        dgc.previous_shift_direction = tmp / np.sqrt(np.sum(tmp ** 2))
 
-        dgc.sigma_severity = self.Localsigma_severityRange[0] + \
-            ((self.Localsigma_severityRange[1] - self.Localsigma_severityRange[0]) * self.rng.random())
+        dgc.sigma_severity = self.local_sigma_severity_range[0] + \
+            ((self.local_sigma_severity_range[1] - self.local_sigma_severity_range[0]) * self.rng.random())
         if self.Conditioning == 0:
             dgc.sigma_direction = np.ones(self.num_of_variables) * (self.rng.integers(2) * 2 - 1)
         else:
             dgc.sigma_direction = self.rng.integers(2, size=self.num_of_variables) * 2 - 1
             
-        dgc.WeightSeverity = self.LocalWeightSeverityRange[0] + \
-            ((self.LocalWeightSeverityRange[1] - self.LocalWeightSeverityRange[0]) * self.rng.random())
-        dgc.WeightDirection = self.rng.integers(2) * 2 - 1
+        dgc.weight_severity = self.local_weight_severity_range[0] + \
+            ((self.local_weight_severity_range[1] - self.local_weight_severity_range[0]) * self.rng.random())
+        dgc.weight_direction = self.rng.integers(2) * 2 - 1
             
-        dgc.RotationSeverity = self.LocalRotationSeverityRange[0] + \
-            ((self.LocalRotationSeverityRange[1] - self.LocalRotationSeverityRange[0]) * self.rng.random())
-        dgc.RotationDirection = np.triu(self.rng.integers(2, size=(self.num_of_variables, self.num_of_variables)) * 2 - 1, 1)
+        dgc.rotation_severity = self.local_rotation_severity_range[0] + \
+            ((self.local_rotation_severity_range[1] - self.local_rotation_severity_range[0]) * self.rng.random())
+        dgc.rotation_direction = np.triu(self.rng.integers(2, size=(self.num_of_variables, self.num_of_variables)) * 2 - 1, 1)
 
-        dgc.LocalChangeLikelihood = self.LocalTemporalSeverityRange[0] + \
-            ((self.LocalTemporalSeverityRange[1] - self.LocalTemporalSeverityRange[0]) * self.rng.random())
-        dgc.DirectionChangeProbability = self.DirectionChangeProbabilityRange[0] + \
-            ((self.DirectionChangeProbabilityRange[1] - self.DirectionChangeProbabilityRange[0]) * self.rng.random())
+        dgc.local_change_likelihood = self.local_temporal_severity_range[0] + \
+            ((self.local_temporal_severity_range[1] - self.local_temporal_severity_range[0]) * self.rng.random())
+        dgc.direction_change_probability = self.direction_change_probability_range[0] + \
+            ((self.direction_change_probability_range[1] - self.direction_change_probability_range[0]) * self.rng.random())
 
 
     # Generate a rotation matrix based on the Theta matrix for a DGC
@@ -241,7 +241,7 @@ class DDG:
         SolutionNumber = X.shape[0]
         result = np.full(SolutionNumber, np.nan)
         for i in range(SolutionNumber):
-            if self.FE > self.MaxEvals:
+            if self.FE > self.max_evals:
                 return result  # Termination criterion has been met
             x = X[i, :]
             cluster_center_position = x.reshape(self.num_of_variables, self.cluster_number).T
@@ -251,10 +251,10 @@ class DDG:
             result[i] = np.sum(selected_distances)  # Sum of intra-cluster distances
             self.FE += 1
             # For performance measurement
-            if result[i] < self.CurrentBestSolutionValue:  # for minimization
-                self.CurrentBestSolution = x
-                self.CurrentBestSolutionValue = result[i]
-            self.BestValueAtEachFE[self.FE] = self.CurrentBestSolutionValue
+            if result[i] < self.current_best_solution_value:  # for minimization
+                self.current_best_solution = x
+                self.current_best_solution_value = result[i]
+            self.best_value_at_each_FE[self.FE] = self.current_best_solution_value
             # changes in the landscape and dataset
             self.check_for_environmental_changes()
         return result
@@ -265,28 +265,28 @@ class DDG:
         recent_large_change_flag = False
         dgc_index = 0
         for dgc in self.dgc:
-            if self.rng.random() < dgc.LocalChangeLikelihood:
+            if self.rng.random() < dgc.local_change_likelihood:
                 self.environmental_change_generator(dgc_index) # local change for DGC jj, the change code is a non-negative integer
             dgc_index += 1 
-        if self.rng.random() < self.GlobalChangeLikelihood:
+        if self.rng.random() < self.global_change_likelihood:
             self.environmental_change_generator(-1) # -1 is the change code for the global severe changes in DGCs' parameters
             recent_large_change_flag = True
-        if self.rng.random() < self.DGCNumberChangeLikelihood:
+        if self.rng.random() < self.DGC_number_change_likelihood:
             self.environmental_change_generator(-2) # -2 is the change code for the change in the number of DGCs
             recent_large_change_flag = True
-        if self.rng.random() < self.VariableNumberChangeLikelihood:
+        if self.rng.random() < self.variable_number_change_likelihood:
             self.environmental_change_generator(-3) # -3 is the change code for the change in the number of variables
             recent_large_change_flag = True
-        if self.rng.random() < self.ClusterNumberChangeLikelihood:
+        if self.rng.random() < self.cluster_number_change_likelihood:
             self.environmental_change_generator(-4) # -4 is the change code for the change in the number of clusters
             recent_large_change_flag = True
         # Sampling (updating dataset after changes)
         if recent_large_change_flag:  # Sample all dataset from the updated DGCs
             self.data_generation(self.data['size'])
-            self.CurrentBestSolutionValue = self.current_solution_evaluation(self.CurrentBestSolution)
+            self.current_best_solution_value = self.current_solution_evaluation(self.current_best_solution)
         if self.rng.random() < self.data['FrequentSamplingLikelihood']:  # Incremental sampling based on the fixed frequency
             self.data_generation(self.data['IncrementalSamplingSize'])
-            self.CurrentBestSolutionValue = self.current_solution_evaluation(self.CurrentBestSolution)
+            self.current_best_solution_value = self.current_solution_evaluation(self.current_best_solution)
     
     #The following function evaluates a single clustering solution, employing the same objective function and representation as clustering_evaluation(.).
     #Its primary use is to re-evaluate the current best solution following updates to the dataset, specifically for performance measurement purposes.
@@ -308,38 +308,38 @@ class DDG:
             random_direction = self.rng.standard_normal(self.num_of_variables)
             random_direction /= np.linalg.norm(random_direction)  # Normalize to unit vector
             summed_vector = ((1 - dgc.shift_correlation_factor) * random_direction) + \
-                            (dgc.shift_correlation_factor * dgc.PreviousShiftDirection)
+                            (dgc.shift_correlation_factor * dgc.previous_shift_direction)
             relocation_direction = summed_vector / np.linalg.norm(summed_vector)
             update_amount = abs(self.rng.standard_normal()) * dgc.shift_severity
             UpdatedDGCPosition = dgc.center + (relocation_direction * update_amount)
             UpdatedDGCPosition = np.clip(UpdatedDGCPosition, self.min_coordinate, self.max_coordinate) # Bound the center (mean) position
             relocation_vector = UpdatedDGCPosition - dgc.center
-            dgc.PreviousShiftDirection = relocation_vector / np.linalg.norm(relocation_vector)
+            dgc.previous_shift_direction = relocation_vector / np.linalg.norm(relocation_vector)
             dgc.center = UpdatedDGCPosition
             # Update weights of DGCs
-            if self.rng.random() < dgc.DirectionChangeProbability:
-                dgc.WeightDirection *= -1
-            dgc.weight = dgc.weight + (abs(self.rng.standard_normal()) * dgc.WeightSeverity * dgc.WeightDirection)
+            if self.rng.random() < dgc.direction_change_probability:
+                dgc.weight_direction *= -1
+            dgc.weight = dgc.weight + (abs(self.rng.standard_normal()) * dgc.weight_severity * dgc.weight_direction)
             dgc.weight = np.clip(dgc.weight, self.min_weight, self.max_weight)
 
             # Update sigma values of DGCs
             if self.Conditioning == 0: # Keeping the condition number of DGCs as 1
-                if self.rng.random() < dgc.DirectionChangeProbability:
+                if self.rng.random() < dgc.direction_change_probability:
                     dgc.sigma_direction *= -1
                 dgc.sigma = dgc.sigma + (np.ones(self.num_of_variables)* abs(self.rng.standard_normal()) * dgc.sigma_severity * dgc.sigma_direction)  
             elif self.Conditioning == 1: # Conditioning is not 1 for DGCs
-                invert_flags = self.rng.random(self.num_of_variables) < dgc.DirectionChangeProbability
+                invert_flags = self.rng.random(self.num_of_variables) < dgc.direction_change_probability
                 dgc.sigma_direction[invert_flags] = -dgc.sigma_direction[invert_flags]
                 dgc.sigma = dgc.sigma + (abs(self.rng.standard_normal(self.num_of_variables)) * dgc.sigma_severity * dgc.sigma_direction)
             dgc.sigma = np.clip(dgc.sigma, self.min_sigma, self.max_sigma) # Bound the sigma values
 
             # Update rotation if applicable
             if self.rotation == 1:
-                invert_flags = np.triu(self.rng.random((self.num_of_variables, self.num_of_variables)) < dgc.DirectionChangeProbability, 1)
-                dgc.RotationDirection[invert_flags] = -dgc.RotationDirection[invert_flags]
+                invert_flags = np.triu(self.rng.random((self.num_of_variables, self.num_of_variables)) < dgc.direction_change_probability, 1)
+                dgc.rotation_direction[invert_flags] = -dgc.rotation_direction[invert_flags]
                 dgc.theta_matrix = dgc.theta_matrix + np.triu(abs(self.rng.standard_normal((self.num_of_variables, self.num_of_variables))), 1) \
-                                                * dgc.RotationSeverity * dgc.RotationDirection
-                dgc.theta_matrix = np.clip(dgc.theta_matrix, self.MinAngle, self.MaxAngle) # Boundary check for angles
+                                                * dgc.rotation_severity * dgc.rotation_direction
+                dgc.theta_matrix = np.clip(dgc.theta_matrix, self.min_angle, self.max_angle) # Boundary check for angles
                 dgc.rotation_matrix = self.generate_rotation_matrix(dgc.theta_matrix)
 
         elif change_code == -1:  # Severe global change for all DGCs
@@ -358,36 +358,36 @@ class DDG:
     def apply_global_changes(self, dgc):
             random_direction = self.rng.standard_normal(self.num_of_variables)
             random_direction /= np.linalg.norm(random_direction)  # Normalize to unit vector
-            dgc.center = dgc.center + (random_direction * self.Globalshift_severityValue * \
-                                        (2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl) - 1))
+            dgc.center = dgc.center + (random_direction * self.global_shift_severity_value * \
+                                        (2 * self.rng.beta(self.global_severity_control, self.global_severity_control) - 1))
             dgc.center = np.clip(dgc.center, self.min_coordinate, self.max_coordinate)  # Bound the center (mean) position
         
             # Update weights of DGCs
-            dgc.weight = dgc.weight + (self.GlobalWeightSeverityValue * \
-                                          (2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl) - 1))
+            dgc.weight = dgc.weight + (self.global_weight_severity_value * \
+                                          (2 * self.rng.beta(self.global_severity_control, self.global_severity_control) - 1))
             dgc.weight = np.clip(dgc.weight, self.min_weight, self.max_weight) # Bound the weight values
 
             # Update sigma values of DGCs
             if self.Conditioning == 0: # Keeping the condition number of DGCs as 1
-                dgc.sigma = dgc.sigma + ((np.ones(self.num_of_variables) * (2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl) - 1)) \
-                                          * self.Globalsigma_severityValue)
+                dgc.sigma = dgc.sigma + ((np.ones(self.num_of_variables) * (2 * self.rng.beta(self.global_severity_control, self.global_severity_control) - 1)) \
+                                          * self.global_sigma_severity_value)
             elif self.Conditioning == 1: # Conditioning is not 1 for DGCs
-                dgc.sigma = dgc.sigma + ((2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl, 1, self.num_of_variables) - 1) \
-                                         * self.Globalsigma_severityValue)
+                dgc.sigma = dgc.sigma + ((2 * self.rng.beta(self.global_severity_control, self.global_severity_control, 1, self.num_of_variables) - 1) \
+                                         * self.global_sigma_severity_value)
             dgc.sigma = np.clip(dgc.sigma, self.min_sigma, self.max_sigma) # Bound the sigma values
 
             # Update rotation if applicable
             if self.rotation == 1:
-                dgc.theta_matrix = dgc.theta_matrix + (self.GlobalAngleSeverityValue * \
-                                  np.triu((2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl, self.num_of_variables, self.num_of_variables) - 1), 1))
-                dgc.theta_matrix = np.clip(dgc.theta_matrix, self.MinAngle, self.MaxAngle) # Boundary check for angles
+                dgc.theta_matrix = dgc.theta_matrix + (self.global_angle_severity_value * \
+                                  np.triu((2 * self.rng.beta(self.global_severity_control, self.global_severity_control, self.num_of_variables, self.num_of_variables) - 1), 1))
+                dgc.theta_matrix = np.clip(dgc.theta_matrix, self.min_angle, self.max_angle) # Boundary check for angles
                 dgc.rotation_matrix = self.generate_rotation_matrix(dgc.theta_matrix)
 
 
     def adjust_dgc_count(self):
         current_count = len(self.dgc)
-        new_count = current_count + (self.rng.integers(0, 2) * 2 - 1) * self.DGCNumberChangeSeverity
-        new_count = np.clip(new_count, self.MinDGCnumber, self.MaxDGCnumber)
+        new_count = current_count + (self.rng.integers(0, 2) * 2 - 1) * self.DGC_number_change_severity
+        new_count = np.clip(new_count, self.min_DGC_number, self.max_DGC_number)
         if new_count < current_count: # Remove DGCs
             number_to_remove = current_count - new_count
             indices_to_remove = set(self.rng.choice(len(self.dgc), number_to_remove, replace=False)) # Randomly select number_to_remove DGCs to remove
@@ -401,11 +401,11 @@ class DDG:
                 self.initialize_rotations(new_dgc) # Initialize the rotation matrices of a new DGC
                 self.initialize_severity(new_dgc) # Initialize the severity values for Gradual local changes for a new DGC
                 self.dgc.append(new_dgc) # Add the new DGC to the list               
-        self.DGCnumber = len(self.dgc) # Update the number of DGCs
+        self.DGC_number = len(self.dgc) # Update the number of DGCs
 
     def adjust_variable_count(self):
         # Change in the number of variables
-        updated_variable_number = self.num_of_variables + (self.rng.integers(0, 2) * 2 - 1) * self.VariableNumberChangeSeverity
+        updated_variable_number = self.num_of_variables + (self.rng.integers(0, 2) * 2 - 1) * self.variable_number_change_severity
         updated_variable_number = np.clip(updated_variable_number, self.min_num_of_variables, self.max_num_of_variables) # Boundary check for DGC sigma
 
         if updated_variable_number < self.num_of_variables: # Remove variables
@@ -430,17 +430,17 @@ class DDG:
                     dgc.center = np.insert(dgc.center, variable_to_add, new_center_value)
                     tmp = np.insert(dgc.previous_shift_direction, variable_to_add, self.rng.standard_normal() * np.mean(dgc.previous_shift_direction))
                     dgc.previous_shift_direction = tmp / np.sqrt(np.sum(tmp**2))
-                    if self.Conditioning == 0:
+                    if self.Conditioning == 0: # Keeping the condition number of DGCs as 1
                         dgc.sigma = np.append(dgc.sigma, dgc.sigma[0])
                         dgc.sigma_direction = np.append(dgc.sigma_direction, dgc.sigma_direction[0])
-                    elif self.Conditioning == 1:
+                    elif self.Conditioning == 1: # Conditioning is not 1 for DGCs
                         new_sigma_value = self.min_sigma + ((self.max_sigma - self.min_sigma) * self.rng.random())
                         dgc.sigma = np.insert(dgc.sigma, variable_to_add, new_sigma_value)
                         dgc.sigma_direction = np.insert(dgc.sigma_direction, variable_to_add, self.rng.integers(0, 2) * 2 - 1)
-                    if self.rotation == 0:
+                    if self.rotation == 0: # Without rotation
                         dgc.rotation_matrix = np.eye(updated_variable_number)
                         dgc.theta_matrix = np.zeros((updated_variable_number, updated_variable_number))
-                    elif self.rotation == 1:
+                    elif self.rotation == 1: # With rotation
                         row, col = dgc.theta_matrix.shape
                         new_row = self.min_angle + (self.max_angle - self.min_angle) * self.rng.random((1, col))
                         new_col = self.min_angle + (self.max_angle - self.min_angle) * self.rng.random((row+1, 1))
@@ -452,15 +452,15 @@ class DDG:
                         dgc.rotation_direction = np.insert(dgc.rotation_direction, variable_to_add, new_rotation_direction_row, axis=0)
                         dgc.rotation_direction = np.insert(dgc.rotation_direction, variable_to_add, new_rotation_direction_col, axis=1)
                         dgc.rotation_direction = np.triu(dgc.rotation_direction, 1)
-                dgc.rotation_matrix = self.rotation(dgc.theta_matrix, self.num_of_variables)
+                dgc.rotation_matrix = self.generate_rotation_matrix(dgc.theta_matrix)
 
         self.num_of_variables = updated_variable_number
 
 
     def adjust_cluster_count(self):
-        # This would adjust the number of cluster centers in the clustering algorithm; specifics may vary
-        pass
-
+        # Change in the number of clusters. Used when the number of clusters is defined by external parts of the system
+        self.cluster_number = self.cluster_number + (self.rng.integers(0, 2) * 2 - 1) * self.cluster_number_change_severity
+        self.cluster_number = np.clip(self.cluster_number, self.min_cluster_number, self.max_cluster_number) # Bound the cluster number
 
     
 
