@@ -340,10 +340,9 @@ class DDG:
                 dgc.ThetaMatrix = dgc.ThetaMatrix + np.triu(abs(self.rng.standard_normal((self.NumberOfVariables, self.NumberOfVariables))), 1) \
                                                 * dgc.RotationSeverity * dgc.RotationDirection
                 dgc.ThetaMatrix = np.clip(dgc.ThetaMatrix, self.MinAngle, self.MaxAngle) # Boundary check for angles
-                dgc.RotationMatrix = self.Rotation(dgc.ThetaMatrix, self.NumberOfVariables)
                 dgc.RotationMatrix = self.GenerateRotationMatrix(dgc.ThetaMatrix)
 
-        elif change_code == -1:  # Global severe changes
+        elif change_code == -1:  # Severe global change for all DGCs
             for dgc in self.dgc:
                 self.apply_global_changes(dgc)
 
@@ -357,27 +356,54 @@ class DDG:
             self.adjust_cluster_count()
 
     def apply_global_changes(self, dgc):
-        # Similar logic to local changes but applies globally with potentially higher severity
-        # Example for center update; apply similar logic for weight, sigma, and rotation if applicable
-        random_direction = self.rng.standard_normal(self.NumberOfVariables)
-        random_direction /= np.linalg.norm(random_direction)
-        update_amount = abs(self.rng.standard_normal()) * self.GlobalShiftSeverityValue
-        dgc.center += random_direction * update_amount
-        dgc.center = np.clip(dgc.center, self.min_coordinate, self.max_coordinate)
+            random_direction = self.rng.standard_normal(self.NumberOfVariables)
+            random_direction /= np.linalg.norm(random_direction)  # Normalize to unit vector
+            dgc.center = dgc.center + (random_direction * self.GlobalShiftSeverityValue * \
+                                        (2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl) - 1))
+            dgc.center = np.clip(dgc.center, self.min_coordinate, self.max_coordinate)  # Bound the center (mean) position
+        
+            # Update weights of DGCs
+            dgc.weight = dgc.weight + (self.GlobalWeightSeverityValue * \
+                                          (2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl) - 1))
+            dgc.weight = np.clip(dgc.weight, self.min_weight, self.max_weight) # Bound the weight values
+
+            # Update sigma values of DGCs
+            if self.Conditioning == 0: # Keeping the condition number of DGCs as 1
+                dgc.sigma = dgc.sigma + ((np.ones(self.NumberOfVariables) * (2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl) - 1)) \
+                                          * self.GlobalSigmaSeverityValue)
+            elif self.Conditioning == 1: # Conditioning is not 1 for DGCs
+                dgc.sigma = dgc.sigma + ((2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl, 1, self.NumberOfVariables) - 1) \
+                                         * self.GlobalSigmaSeverityValue)
+            dgc.sigma = np.clip(dgc.sigma, self.min_sigma, self.max_sigma) # Bound the sigma values
+
+            # Update rotation if applicable
+            if self.rotation == 1:
+                dgc.ThetaMatrix = dgc.ThetaMatrix + (self.GlobalAngleSeverityValue * \
+                                  np.triu((2 * self.rng.beta(self.GlobalSeverityControl, self.GlobalSeverityControl, self.NumberOfVariables, self.NumberOfVariables) - 1), 1))
+                dgc.ThetaMatrix = np.clip(dgc.ThetaMatrix, self.MinAngle, self.MaxAngle) # Boundary check for angles
+                dgc.RotationMatrix = self.GenerateRotationMatrix(dgc.ThetaMatrix)
+
 
     def adjust_dgc_count(self):
         current_count = len(self.dgc)
-        change = self.rng.integers(-1, 2)  # Randomly decide to add or remove one DGC
-        new_count = current_count + change
+        new_count = current_count + (self.rng.integers(0, 2) * 2 - 1) * self.DGCNumberChangeSeverity
         new_count = max(min(new_count, self.MaxDGCnumber), self.MinDGCnumber)
-        if new_count < current_count:
-            self.dgc = self.dgc[:new_count]
-        else:
+        new_count = np.clip(new_count, self.MinDGCnumber, self.MaxDGCnumber)
+        if new_count < current_count: # Remove DGCs
+            number_to_remove = current_count - new_count
+            indices_to_remove = set(self.rng.choice(len(self.dgc), number_to_remove, replace=False)) # Randomly select number_to_remove DGCs to remove
+            self.dgc = [d for i, d in enumerate(self.dgc) if i not in indices_to_remove] # remove number_to_remove DGCs whose indices are in indices_to_remove
+        elif new_count > current_count: # Add new DGCs
             for _ in range(new_count - current_count):
-                new_dgc = self.DGC()  # Assuming a method to initialize a new DGC properly
-                self.initialize_dgc(new_dgc)  # Assuming a method to initialize DGC properties
-                self.dgc.append(new_dgc)
-
+                new_dgc = self.DGC() 
+                self.initialize_DGC_center(new_dgc) # Initialize the center position of a new DGC
+                self.initialize_DGC_weights(new_dgc) # Initialize the weight of a new DGC
+                self.initialize_DGC_sigmas(new_dgc) # Initialize the sigma values of a new DGC
+                self.initialize_rotations(new_dgc) # Initialize the rotation matrices of a new DGC
+                self.initialize_severity(new_dgc) # Initialize the severity values for Gradual local changes for a new DGC
+                self.dgc.append(new_dgc) # Add the new DGC to the list               
+        self.DGCnumber = len(self.dgc) # Update the number of DGCs
+        
     def adjust_variable_count(self):
         # This would adjust the number of variables in each DGC; details depend on your model's specifics
         pass
