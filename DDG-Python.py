@@ -170,25 +170,32 @@ class DDG:
 
     # Initialize the severity values for Gradual local changes for each DGC        
     def initialize_severity(self, dgc):
-        dgc.ShiftSeverity = self.LocalShiftSeverityRange[0] + ((self.LocalShiftSeverityRange[1] - self.LocalShiftSeverityRange[0]) * self.rng.random())
-        dgc.ShiftCorrelationFactor = self.RelocationCorrelationRange[0] + ((self.RelocationCorrelationRange[1] - self.RelocationCorrelationRange[0]) * self.rng.random())
+        dgc.ShiftSeverity = self.LocalShiftSeverityRange[0] + \
+            ((self.LocalShiftSeverityRange[1] - self.LocalShiftSeverityRange[0]) * self.rng.random())
+        dgc.ShiftCorrelationFactor = self.RelocationCorrelationRange[0] + \
+            ((self.RelocationCorrelationRange[1] - self.RelocationCorrelationRange[0]) * self.rng.random())
         tmp = self.rng.standard_normal(self.NumberOfVariables)
         dgc.PreviousShiftDirection = tmp / np.sqrt(np.sum(tmp ** 2))
 
-        dgc.SigmaSeverity = self.LocalSigmaSeverityRange[0] + ((self.LocalSigmaSeverityRange[1] - self.LocalSigmaSeverityRange[0]) * self.rng.random())
+        dgc.SigmaSeverity = self.LocalSigmaSeverityRange[0] + \
+            ((self.LocalSigmaSeverityRange[1] - self.LocalSigmaSeverityRange[0]) * self.rng.random())
         if self.Conditioning == 0:
             dgc.SigmaDirection = np.ones(self.NumberOfVariables) * (self.rng.integers(2) * 2 - 1)
         else:
             dgc.SigmaDirection = self.rng.integers(2, size=self.NumberOfVariables) * 2 - 1
             
-        dgc.WeightSeverity = self.LocalWeightSeverityRange[0] + ((self.LocalWeightSeverityRange[1] - self.LocalWeightSeverityRange[0]) * self.rng.random())
+        dgc.WeightSeverity = self.LocalWeightSeverityRange[0] + \
+            ((self.LocalWeightSeverityRange[1] - self.LocalWeightSeverityRange[0]) * self.rng.random())
         dgc.WeightDirection = self.rng.integers(2) * 2 - 1
             
-        dgc.RotationSeverity = self.LocalRotationSeverityRange[0] + ((self.LocalRotationSeverityRange[1] - self.LocalRotationSeverityRange[0]) * self.rng.random())
+        dgc.RotationSeverity = self.LocalRotationSeverityRange[0] + \
+            ((self.LocalRotationSeverityRange[1] - self.LocalRotationSeverityRange[0]) * self.rng.random())
         dgc.RotationDirection = np.triu(self.rng.integers(2, size=(self.NumberOfVariables, self.NumberOfVariables)) * 2 - 1, 1)
 
-        dgc.LocalChangeLikelihood = self.LocalTemporalSeverityRange[0] + ((self.LocalTemporalSeverityRange[1] - self.LocalTemporalSeverityRange[0]) * self.rng.random())
-        dgc.DirectionChangeProbability = self.DirectionChangeProbabilityRange[0] + ((self.DirectionChangeProbabilityRange[1] - self.DirectionChangeProbabilityRange[0]) * self.rng.random())
+        dgc.LocalChangeLikelihood = self.LocalTemporalSeverityRange[0] + \
+            ((self.LocalTemporalSeverityRange[1] - self.LocalTemporalSeverityRange[0]) * self.rng.random())
+        dgc.DirectionChangeProbability = self.DirectionChangeProbabilityRange[0] + \
+            ((self.DirectionChangeProbabilityRange[1] - self.DirectionChangeProbabilityRange[0]) * self.rng.random())
 
 
     # Generate a rotation matrix based on the Theta matrix for a DGC
@@ -297,36 +304,43 @@ class DDG:
         # Local change for a specific DGC (positive integer change codes)
         if change_code >= 0:
             dgc = self.dgc[change_code]
-            # Update DGC center
+            # Update DGC center (mean) positions
             random_direction = self.rng.standard_normal(self.NumberOfVariables)
             random_direction /= np.linalg.norm(random_direction)  # Normalize to unit vector
             summed_vector = ((1 - dgc.ShiftCorrelationFactor) * random_direction) + \
                             (dgc.ShiftCorrelationFactor * dgc.PreviousShiftDirection)
             relocation_direction = summed_vector / np.linalg.norm(summed_vector)
             update_amount = abs(self.rng.standard_normal()) * dgc.ShiftSeverity
-            dgc.center += relocation_direction * update_amount
-            # Ensure center remains within bounds
-            dgc.center = np.clip(dgc.center, self.min_coordinate, self.max_coordinate)
-            dgc.PreviousShiftDirection = relocation_direction
-
-            # Update weight
+            UpdatedDGCPosition = dgc.center + (relocation_direction * update_amount)
+            UpdatedDGCPosition = np.clip(UpdatedDGCPosition, self.min_coordinate, self.max_coordinate) # Bound the center (mean) position
+            relocation_vector = UpdatedDGCPosition - dgc.center
+            dgc.PreviousShiftDirection = relocation_vector / np.linalg.norm(relocation_vector)
+            dgc.center = UpdatedDGCPosition
+            # Update weights of DGCs
             if self.rng.random() < dgc.DirectionChangeProbability:
                 dgc.WeightDirection *= -1
-            dgc.weight += dgc.WeightSeverity * dgc.WeightDirection
-            dgc.weight = max(min(dgc.weight, self.max_weight), self.min_weight)
+            dgc.weight = dgc.weight + (abs(self.rng.standard_normal()) * dgc.WeightSeverity * dgc.WeightDirection)
+            dgc.weight = np.clip(dgc.weight, self.min_weight, self.max_weight)
 
-            # Update sigma
-            if self.rng.random() < dgc.DirectionChangeProbability:
-                dgc.SigmaDirection *= -1
-            dgc.sigma += dgc.SigmaSeverity * dgc.SigmaDirection
-            dgc.sigma = np.clip(dgc.sigma, self.min_sigma, self.max_sigma)
+            # Update sigma values of DGCs
+            if self.Conditioning == 0: # Keeping the condition number of DGCs as 1
+                if self.rng.random() < dgc.DirectionChangeProbability:
+                    dgc.SigmaDirection *= -1
+                dgc.sigma = dgc.sigma + (np.ones(self.NumberOfVariables)* abs(self.rng.standard_normal()) * dgc.SigmaSeverity * dgc.SigmaDirection)  
+            elif self.Conditioning == 1: # Conditioning is not 1 for DGCs
+                invert_flags = self.rng.random(self.NumberOfVariables) < dgc.DirectionChangeProbability
+                dgc.SigmaDirection[invert_flags] = -dgc.SigmaDirection[invert_flags]
+                dgc.sigma = dgc.sigma + (abs(self.rng.standard_normal(self.NumberOfVariables)) * dgc.SigmaSeverity * dgc.SigmaDirection)
+            dgc.sigma = np.clip(dgc.sigma, self.min_sigma, self.max_sigma) # Bound the sigma values
 
             # Update rotation if applicable
             if self.rotation == 1:
-                theta_changes = self.rng.standard_normal((self.NumberOfVariables, self.NumberOfVariables))
-                theta_changes = np.triu(theta_changes, 1)  # Only upper triangle affects the rotation
-                dgc.ThetaMatrix += theta_changes * dgc.RotationSeverity * dgc.RotationDirection
-                dgc.ThetaMatrix = np.clip(dgc.ThetaMatrix, self.MinAngle, self.MaxAngle)
+                invert_flags = np.triu(self.rng.random((self.NumberOfVariables, self.NumberOfVariables)) < dgc.DirectionChangeProbability, 1)
+                dgc.RotationDirection[invert_flags] = -dgc.RotationDirection[invert_flags]
+                dgc.ThetaMatrix = dgc.ThetaMatrix + np.triu(abs(self.rng.standard_normal((self.NumberOfVariables, self.NumberOfVariables))), 1) \
+                                                * dgc.RotationSeverity * dgc.RotationDirection
+                dgc.ThetaMatrix = np.clip(dgc.ThetaMatrix, self.MinAngle, self.MaxAngle) # Boundary check for angles
+                dgc.RotationMatrix = self.Rotation(dgc.ThetaMatrix, self.NumberOfVariables)
                 dgc.RotationMatrix = self.GenerateRotationMatrix(dgc.ThetaMatrix)
 
         elif change_code == -1:  # Global severe changes
